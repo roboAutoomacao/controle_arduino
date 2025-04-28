@@ -25,20 +25,39 @@ class ArduinoComando {
     }
   }
 
+  void enviarComando(String comando) {
+    if (_porta.isOpen) {
+      final Uint8List dados = Uint8List.fromList(utf8.encode(comando));
+      _porta.write(dados);
+      if (kDebugMode) {
+        print('Comando enviado: $comando');
+      }
+    } else {
+      if (kDebugMode) {
+        print('Erro: Porta não está aberta para enviar comando!');
+      }
+    }
+  }
+
   Future<void> executarComandos(String path) async {
     try {
       final file = File(path);
       if (await file.exists()) {
         final jsonString = await file.readAsString();
-        final List<dynamic> comandos = jsonDecode(jsonString);
+        final dynamic decoded = jsonDecode(jsonString);
 
-        for (var comando in comandos) {
-          final String acao = comando['comando'];
-          final int tempo = comando['tempo'] ?? 500;
+        if (decoded is List) {
+          for (var item in decoded) {
+            final String comando = item['comando'] ?? '';
+            final int tempo = item['tempo'] ?? 500;
 
-          _porta.write(Utf8Encoder().convert(acao));
-          if (kDebugMode) print('Comando enviado: $acao');
-          await Future.delayed(Duration(milliseconds: tempo));
+            if (comando.isNotEmpty) {
+              enviarComando(comando);
+              await Future.delayed(Duration(milliseconds: tempo));
+            }
+          }
+        } else {
+          if (kDebugMode) print('JSON inválido: esperado uma lista de comandos.');
         }
       } else {
         if (kDebugMode) print('Arquivo não encontrado em: $path');
