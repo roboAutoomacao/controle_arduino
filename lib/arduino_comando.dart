@@ -52,6 +52,7 @@ class ArduinoComando {
             final int tempo = item['tempo'] ?? 500;
 
             if (comando.isNotEmpty) {
+              // Envia o comando específico para o Arduino
               enviarComando(comando);
               await Future.delayed(Duration(milliseconds: tempo));
             }

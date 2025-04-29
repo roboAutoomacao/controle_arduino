@@ -34,7 +34,7 @@ class _HomePageState extends State<HomePage> {
   List<String> portasDisponiveis = [];
   String? porta1, porta2, porta3;
   ArduinoComando? arduino1, arduino2, arduino3;
-  List<String> comandosGravados = [];
+  List<Map<String, dynamic>> comandosGravados = []; // Agora gravando o tempo também
 
   @override
   void initState() {
@@ -92,7 +92,7 @@ class _HomePageState extends State<HomePage> {
 
     if (gravar) {
       setState(() {
-        comandosGravados.add(comando);
+        comandosGravados.add({'comando': comando, 'tempo': 500}); // Aqui estamos gravando o tempo
       });
     }
 
@@ -115,51 +115,41 @@ class _HomePageState extends State<HomePage> {
 
     _mostrarMensagem('Executando rotina...');
 
-    for (var comando in comandosGravados) {
+    for (var item in comandosGravados) {
+      final String comando = item['comando'];
+      final int tempo = item['tempo'];
+
       _enviarParaTodos(comando, gravar: false);
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(Duration(milliseconds: tempo));
     }
 
     _mostrarMensagem('Rotina executada com sucesso!');
   }
 
   void _executarRotinaViaJson() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
 
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
       final content = await file.readAsString();
 
       try {
-        final Map<String, dynamic> jsonData = json.decode(content);
+        final List<dynamic> jsonData = json.decode(content);
 
         _mostrarMensagem('Executando comandos do arquivo JSON...');
 
-        // Aqui vamos processar cada comando com um intervalo de tempo.
-        for (int i = 0; i < jsonData["1"]!.length; i++) {
-          // Envia o comando para o Arduino 1
-          String comando1 = jsonData["1"]![i];
-          arduino1?.enviarComando(comando1);
-          await Future.delayed(const Duration(milliseconds: 500));
+        for (var item in jsonData) {
+          String comando = item['comando'];
+          int tempo = item['tempo'];
 
-          // Envia o comando para o Arduino 2
-          String comando2 = jsonData["2"]![i];
-          arduino2?.enviarComando(comando2);
-          await Future.delayed(const Duration(milliseconds: 500));
-
-          // Envia o comando para o Arduino 3
-          String comando3 = jsonData["3"]![i];
-          arduino3?.enviarComando(comando3);
-          await Future.delayed(const Duration(milliseconds: 500));
+          _enviarParaTodos(comando, gravar: false);
+          await Future.delayed(Duration(milliseconds: tempo));
         }
 
-        // Após todos os comandos, enviar o comando de parada (s) para cada Arduino
-        arduino1?.enviarComando('s'); // Parar o Arduino 1
-        arduino2?.enviarComando('s'); // Parar o Arduino 2
-        arduino3?.enviarComando('s'); // Parar o Arduino 3
-
-        _mostrarMensagem('Execução via JSON concluída! Todos os comandos foram executados.');
-
+        _mostrarMensagem('Execução via JSON concluída!');
       } catch (e) {
         _mostrarMensagem('Erro ao ler o JSON: $e');
       }
@@ -219,33 +209,9 @@ class _HomePageState extends State<HomePage> {
         ElevatedButton(onPressed: () => _enviarParaTodos('d', gravar: true), child: const Text('D (Direita)')),
         ElevatedButton(onPressed: () => _enviarParaTodos('c', gravar: true), child: const Text('C (Cima)')),
         ElevatedButton(onPressed: () => _enviarParaTodos('b', gravar: true), child: const Text('B (Baixo)')),
-        ElevatedButton(
-          onPressed: () => _enviarParaTodos('s', gravar: true),
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-          child: const Text('S (Parar)'),
-        ),
-      ],
-    );
-  }
-
-  Widget _botoesRotinas() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: 24),
-        ElevatedButton.icon(
-          icon: const Icon(Icons.play_arrow),
-          label: const Text('Executar Rotina Gravada'),
-          onPressed: _executarRotina,
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-        ),
-        const SizedBox(height: 16),
-        ElevatedButton.icon(
-          icon: const Icon(Icons.delete),
-          label: const Text('Excluir Rotina'),
-          onPressed: _excluirRotina,
-          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-        ),
+        ElevatedButton(onPressed: _executarRotina, child: const Text('Executar Rotina')),
+        ElevatedButton(onPressed: _excluirRotina, child: const Text('Excluir Rotina')),
+        ElevatedButton(onPressed: _executarRotinaViaJson, child: const Text('Executar Rotina Via JSON')),
       ],
     );
   }
@@ -253,24 +219,17 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Controle de Robô')),
+      appBar: AppBar(title: const Text('Controle Arduino Múltiplo')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ListView(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _seletorPorta(1, porta1, (value) => setState(() => porta1 = value)),
-            _seletorPorta(2, porta2, (value) => setState(() => porta2 = value)),
-            _seletorPorta(3, porta3, (value) => setState(() => porta3 = value)),
-            _botoesComando(),
+            _seletorPorta(1, porta1, (porta) => setState(() => porta1 = porta)),
+            _seletorPorta(2, porta2, (porta) => setState(() => porta2 = porta)),
+            _seletorPorta(3, porta3, (porta) => setState(() => porta3 = porta)),
             const SizedBox(height: 20),
-            _botoesRotinas(),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.file_download),
-              label: const Text('Executar Rotina Via JSON'),
-              onPressed: _executarRotinaViaJson,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-            ),
+            _botoesComando(),
           ],
         ),
       ),
