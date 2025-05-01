@@ -34,7 +34,7 @@ class _HomePageState extends State<HomePage> {
   List<String> portasDisponiveis = [];
   String? porta1, porta2, porta3;
   ArduinoComando? arduino1, arduino2, arduino3;
-  List<Map<String, dynamic>> comandosGravados = []; // Agora gravando o tempo também
+  List<Map<String, dynamic>> comandosGravados = [];
 
   @override
   void initState() {
@@ -92,7 +92,7 @@ class _HomePageState extends State<HomePage> {
 
     if (gravar) {
       setState(() {
-        comandosGravados.add({'comando': comando, 'tempo': 500}); // Aqui estamos gravando o tempo
+        comandosGravados.add({'comando': comando, 'tempo': 500});
       });
     }
 
@@ -137,16 +137,36 @@ class _HomePageState extends State<HomePage> {
       final content = await file.readAsString();
 
       try {
-        final List<dynamic> jsonData = json.decode(content);
-
+        final List<dynamic> acoes = json.decode(content);
         _mostrarMensagem('Executando comandos do arquivo JSON...');
 
-        for (var item in jsonData) {
-          String comando = item['comando'];
-          int tempo = item['tempo'];
+        for (var acao in acoes) {
+          final int tempo = acao['tempo'] ?? 500;
 
-          _enviarParaTodos(comando, gravar: false);
-          await Future.delayed(Duration(milliseconds: tempo));
+          if (acao.containsKey('horizontal') && arduino1 != null) {
+            arduino1!.enviarComando(acao['horizontal']);
+            await Future.delayed(Duration(milliseconds: tempo));
+          }
+
+          if (acao.containsKey('vertical') && arduino2 != null) {
+            arduino2!.enviarComando(acao['vertical']);
+            await Future.delayed(Duration(milliseconds: tempo));
+          }
+
+          if (acao.containsKey('plataforma') && arduino3 != null) {
+            arduino3!.enviarComando(acao['plataforma']);
+            await Future.delayed(Duration(milliseconds: tempo));
+          }
+
+          if (acao.containsKey('botao1') && arduino1 != null) {
+            arduino1!.enviarComando(acao['botao1']);
+            await Future.delayed(Duration(milliseconds: tempo));
+          }
+
+          if (acao.containsKey('botao2') && arduino2 != null) {
+            arduino2!.enviarComando(acao['botao2']);
+            await Future.delayed(Duration(milliseconds: tempo));
+          }
         }
 
         _mostrarMensagem('Execução via JSON concluída!');
@@ -158,10 +178,9 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // Função para excluir rotina
   void _excluirRotina() {
     setState(() {
-      comandosGravados.clear(); // Limpa a lista de comandos gravados
+      comandosGravados.clear();
     });
 
     _mostrarMensagem('Rotina excluída com sucesso!');
@@ -209,7 +228,7 @@ class _HomePageState extends State<HomePage> {
         ElevatedButton(onPressed: () => _enviarParaTodos('d', gravar: true), child: const Text('D (Direita)')),
         ElevatedButton(onPressed: () => _enviarParaTodos('c', gravar: true), child: const Text('C (Cima)')),
         ElevatedButton(onPressed: () => _enviarParaTodos('b', gravar: true), child: const Text('B (Baixo)')),
-        ElevatedButton(onPressed: () => _enviarParaTodos('s', gravar: true), child: const Text('S (parar)')),
+        ElevatedButton(onPressed: () => _enviarParaTodos('s', gravar: true), child: const Text('S (Parar)')),
         ElevatedButton(onPressed: _executarRotina, child: const Text('Executar Rotina')),
         ElevatedButton(onPressed: _excluirRotina, child: const Text('Excluir Rotina')),
         ElevatedButton(onPressed: _executarRotinaViaJson, child: const Text('Executar Rotina Via JSON')),
@@ -223,15 +242,17 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(title: const Text('Controle Arduino Múltiplo')),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _seletorPorta(1, porta1, (porta) => setState(() => porta1 = porta)),
-            _seletorPorta(2, porta2, (porta) => setState(() => porta2 = porta)),
-            _seletorPorta(3, porta3, (porta) => setState(() => porta3 = porta)),
-            const SizedBox(height: 20),
-            _botoesComando(),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _seletorPorta(1, porta1, (porta) => setState(() => porta1 = porta)),
+              _seletorPorta(2, porta2, (porta) => setState(() => porta2 = porta)),
+              _seletorPorta(3, porta3, (porta) => setState(() => porta3 = porta)),
+              const SizedBox(height: 20),
+              _botoesComando(),
+            ],
+          ),
         ),
       ),
     );

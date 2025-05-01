@@ -39,50 +39,64 @@ class ArduinoComando {
     }
   }
 
+  Future<bool> _aguardarOK(StringBuffer buffer, {int timeoutMs = 3000}) async {
+    final start = DateTime.now();
+    while (!buffer.toString().contains('OK')) {
+      if (DateTime.now().difference(start).inMilliseconds > timeoutMs) {
+        return false;
+      }
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    return true;
+  }
+
   Future<void> executarComandos(String path) async {
-  try {
-    final file = File(path);
-    if (await file.exists()) {
-      final jsonString = await file.readAsString();
-      final dynamic decoded = jsonDecode(jsonString);
+    try {
+      final file = File(path);
+      if (await file.exists()) {
+        final jsonString = await file.readAsString();
+        final dynamic decoded = jsonDecode(jsonString);
 
-      if (decoded is List) {
-        final reader = SerialPortReader(_porta);
-        final buffer = StringBuffer();
+        if (decoded is List) {
+          final reader = SerialPortReader(_porta);
+          final buffer = StringBuffer();
 
-        // Escuta respostas do Arduino
-        reader.stream.listen((data) {
-          final texto = utf8.decode(data);
-          buffer.write(texto);
-        });
+          final subscription = reader.stream.listen((data) {
+            final texto = utf8.decode(data);
+            buffer.write(texto);
+          });
 
-        for (var item in decoded) {
-          final String comando = item['comando'] ?? '';
-          final int tempo = item['tempo'] ?? 500;
+          for (var item in decoded) {
+            if (item is Map && item.containsKey('comando') && item['comando'] is String) {
+              final String comando = item['comando'];
+              final int tempo = (item['tempo'] is int) ? item['tempo'] : 500;
 
-          if (comando.isNotEmpty) {
-            buffer.clear();
-            enviarComando(comando);
+              if (comando.isNotEmpty) {
+                buffer.clear();
+                enviarComando(comando);
 
-            // Aguarda confirmação "OK"
-            while (!buffer.toString().contains('OK')) {
-              await Future.delayed(const Duration(milliseconds: 50));
+                final sucesso = await _aguardarOK(buffer);
+                if (!sucesso) {
+                  if (kDebugMode) print('Timeout esperando resposta OK para comando: $comando');
+                  continue; // ou `break;` se quiser abortar
+                }
+
+                await Future.delayed(Duration(milliseconds: tempo));
+              }
+            } else {
+              if (kDebugMode) print('Item inválido no JSON: $item');
             }
-
-            // Garante que o Arduino teve tempo para o movimento (caso o tempo faça sentido)
-            await Future.delayed(Duration(milliseconds: tempo));
           }
+
+          await subscription.cancel();
+        } else {
+          if (kDebugMode) print('JSON inválido: esperado uma lista de comandos.');
         }
       } else {
-        if (kDebugMode) print('JSON inválido: esperado uma lista de comandos.');
+        if (kDebugMode) print('Arquivo não encontrado em: $path');
       }
-    } else {
-      if (kDebugMode) print('Arquivo não encontrado em: $path');
+    } catch (e) {
+      if (kDebugMode) print('Erro ao executar comandos: $e');
     }
-  } catch (e) {
-    if (kDebugMode) print('Erro ao executar comandos: $e');
   }
-}
-
-
 }
