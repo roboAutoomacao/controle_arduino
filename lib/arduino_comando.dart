@@ -40,31 +40,49 @@ class ArduinoComando {
   }
 
   Future<void> executarComandos(String path) async {
-    try {
-      final file = File(path);
-      if (await file.exists()) {
-        final jsonString = await file.readAsString();
-        final dynamic decoded = jsonDecode(jsonString);
+  try {
+    final file = File(path);
+    if (await file.exists()) {
+      final jsonString = await file.readAsString();
+      final dynamic decoded = jsonDecode(jsonString);
 
-        if (decoded is List) {
-          for (var item in decoded) {
-            final String comando = item['comando'] ?? '';
-            final int tempo = item['tempo'] ?? 500;
+      if (decoded is List) {
+        final reader = SerialPortReader(_porta);
+        final buffer = StringBuffer();
 
-            if (comando.isNotEmpty) {
-              // Envia o comando específico para o Arduino
-              enviarComando(comando);
-              await Future.delayed(Duration(milliseconds: tempo));
+        // Escuta respostas do Arduino
+        reader.stream.listen((data) {
+          final texto = utf8.decode(data);
+          buffer.write(texto);
+        });
+
+        for (var item in decoded) {
+          final String comando = item['comando'] ?? '';
+          final int tempo = item['tempo'] ?? 500;
+
+          if (comando.isNotEmpty) {
+            buffer.clear();
+            enviarComando(comando);
+
+            // Aguarda confirmação "OK"
+            while (!buffer.toString().contains('OK')) {
+              await Future.delayed(const Duration(milliseconds: 50));
             }
+
+            // Garante que o Arduino teve tempo para o movimento (caso o tempo faça sentido)
+            await Future.delayed(Duration(milliseconds: tempo));
           }
-        } else {
-          if (kDebugMode) print('JSON inválido: esperado uma lista de comandos.');
         }
       } else {
-        if (kDebugMode) print('Arquivo não encontrado em: $path');
+        if (kDebugMode) print('JSON inválido: esperado uma lista de comandos.');
       }
-    } catch (e) {
-      if (kDebugMode) print('Erro ao executar comandos: $e');
+    } else {
+      if (kDebugMode) print('Arquivo não encontrado em: $path');
     }
+  } catch (e) {
+    if (kDebugMode) print('Erro ao executar comandos: $e');
   }
+}
+
+
 }

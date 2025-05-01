@@ -209,6 +209,7 @@ class _HomePageState extends State<HomePage> {
         ElevatedButton(onPressed: () => _enviarParaTodos('d', gravar: true), child: const Text('D (Direita)')),
         ElevatedButton(onPressed: () => _enviarParaTodos('c', gravar: true), child: const Text('C (Cima)')),
         ElevatedButton(onPressed: () => _enviarParaTodos('b', gravar: true), child: const Text('B (Baixo)')),
+        ElevatedButton(onPressed: () => _enviarParaTodos('s', gravar: true), child: const Text('S (parar)')),
         ElevatedButton(onPressed: _executarRotina, child: const Text('Executar Rotina')),
         ElevatedButton(onPressed: _excluirRotina, child: const Text('Excluir Rotina')),
         ElevatedButton(onPressed: _executarRotinaViaJson, child: const Text('Executar Rotina Via JSON')),
